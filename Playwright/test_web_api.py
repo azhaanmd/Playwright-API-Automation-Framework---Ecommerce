@@ -1,6 +1,8 @@
 from playwright.sync_api import Playwright, expect
 from utils.apiBase import APIUtils
+from pageObjects.login import LoginPage
 import json, os, pytest
+
 
 #userTestCount = int(1)
 file_path = "Playwright/data/credentials.json"
@@ -13,27 +15,31 @@ user_credentials_list = test_data['user_credentials']
 
 
 @pytest.mark.parametrize('userCredentials', user_credentials_list) #pulls one item each time to execute using that data
-def test_e2e_web_api(playwright:Playwright, userCredentials):
-    browser = playwright.chromium.launch(headless=False)
-    context = browser.new_context()
-    page = context.new_page()
+def test_e2e_web_api(playwright:Playwright, userCredentials, browserInstance):
+    user_email = userCredentials["userEmail"]
+    user_password = userCredentials["userPassword"]
 
-    #create order -> orderID
+    print(f'Using User:: {user_email}\n')
+    #print(f'Test User No: {userTestCount}\n')
+    #userTestCount+=1
+    
+    #--------------API PART-------------------
+    #create order -> orderID ::
     api_utils = APIUtils()
     orderID = api_utils.createOrder(playwright, userCredentials)
 
+    #--------------UI PART-------------------
     #login
-    page.goto("https://rahulshettyacademy.com/client/")
-    page.get_by_placeholder("email@example.com").fill(userCredentials["userEmail"])
-    page.get_by_placeholder("enter your passsword").fill(userCredentials["userPassword"])
-    page.get_by_role("button", name="Login").click()
-    print(f'Using User:: {userCredentials["userEmail"]}\n')
-    #print(f'Test User No: {userTestCount}\n')
-    #userTestCount+=1
+    loginPage = LoginPage(browserInstance) #browserInstance is returning page object 
+    loginPage.navigate()
+    dashboardPage = loginPage.login(user_email, user_password)
+
+    #dashboard
+    # dashboardPage = DashboardPage(page)
+    orderHistoryPage = dashboardPage.selectOrdersNavigationLink()
+    orderDetailPage = orderHistoryPage.selectOrder(orderID)
+
+    orderDetailPage.verifyOrderMessage()
 
 
     #orders history page -> order is present
-    page.get_by_role("button", name="ORDERS").click()
-    orderRow = page.locator("tr").filter(has_text=orderID)
-    orderRow.get_by_role("button", name = "View").click()
-    expect(page.locator(".tagline")).to_contain_text("Thank you")
